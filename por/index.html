@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Tracker | Sales Order Analytics</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- localForage for IndexedDB wrapper -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <!-- Day.js for date handling -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/dayjs.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Task Tracker</h1>
+            <div class="upload-container">
+                <button id="upload-btn" class="btn primary"><i class="fas fa-upload"></i> Upload CSV</button>
+                <input type="file" id="csv-upload" accept=".csv" hidden>
+            </div>
+        </div>
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" placeholder="Search orders...">
+            </div>
+            <button id="advanced-filters-btn" class="btn secondary"><i class="fas fa-filter"></i> Filters</button>
+        </div>
+    </header>
+
+    <main>
+        <div id="dashboard" class="dashboard-container">
+            <div class="dashboard-header">
+                <h2>Dashboard</h2>
+                <div class="view-toggle">
+                    <button id="table-view-btn" class="btn view-btn active"><i class="fas fa-table"></i> Table</button>
+                    <button id="chart-view-btn" class="btn view-btn"><i class="fas fa-chart-bar"></i> Chart</button>
+                </div>
+            </div>
+            
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Total Orders</h3>
+                    <p id="total-orders">-</p>
+                </div>
+                <div class="card">
+                    <h3>Locations</h3>
+                    <p id="total-locations">-</p>
+                </div>
+                <div class="card">
+                    <h3>GPU Models</h3>
+                    <p id="total-gpu-models">-</p>
+                </div>
+                <div class="card">
+                    <h3>Fabric Types</h3>
+                    <p id="total-fabric-types">-</p>
+                </div>
+            </div>
+            
+            <div id="table-view" class="data-view active">
+                <table id="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Location Code</th>
+                            <th>Customer</th>
+                            <th>Fabric Type</th>
+                            <th>GPU Model</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-tbody">
+                        <!-- Table rows will be inserted here dynamically -->
+                        <tr class="empty-state">
+                            <td colspan="5">
+                                <div class="empty-state-message">
+                                    <i class="fas fa-file-csv fa-3x"></i>
+                                    <p>Upload a CSV file to get started</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="pagination">
+                    <button id="prev-page" class="btn" disabled><i class="fas fa-chevron-left"></i></button>
+                    <span id="page-info">Page 1 of 1</span>
+                    <button id="next-page" class="btn" disabled><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+            
+            <div id="chart-view" class="data-view">
+                <div class="chart-container">
+                    <canvas id="main-chart"></canvas>
+                </div>
+                <div class="chart-controls">
+                    <div class="chart-type-selector">
+                        <label for="chart-type">Chart Type:</label>
+                        <select id="chart-type">
+                            <option value="bar">Bar Chart</option>
+                            <option value="pie">Pie Chart</option>
+                            <option value="line">Line Chart</option>
+                        </select>
+                    </div>
+                    <div class="chart-group-selector">
+                        <label for="chart-group">Group By:</label>
+                        <select id="chart-group">
+                            <option value="location">Location Code</option>
+                            <option value="fabric">Fabric Type</option>
+                            <option value="gpu">GPU Model</option>
+                            <option value="customer">Customer</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="detail-view" class="detail-container hidden">
+            <div class="detail-header">
+                <button id="back-to-dashboard" class="btn secondary"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2 id="detail-title">Location Details</h2>
+            </div>
+            <div class="detail-cards">
+                <div class="card detail-info">
+                    <h3>Info</h3>
+                    <div id="detail-info-content"></div>
+                </div>
+                <div class="card detail-metrics">
+                    <h3>Metrics</h3>
+                    <div id="detail-metrics-content"></div>
+                </div>
+            </div>
+            <div class="detail-data">
+                <h3>Orders</h3>
+                <div id="detail-orders-table-container">
+                    <table id="detail-orders-table">
+                        <thead>
+                            <tr>
+                                <th>UniqueID</th>
+                                <th>Customer</th>
+                                <th>Fabric Type</th>
+                                <th>GPU Model</th>
+                                <th>More</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detail-orders-tbody">
+                            <!-- Detail table rows will be inserted here dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="history-view" class="history-container hidden">
+            <div class="history-header">
+                <button id="back-from-history" class="btn secondary"><i class="fas fa-arrow-left"></i> Back</button>
+                <h2>Historical Data</h2>
+                <div class="view-toggle">
+                    <button id="history-table-btn" class="btn view-btn active"><i class="fas fa-table"></i> Table</button>
+                    <button id="history-chart-btn" class="btn view-btn"><i class="fas fa-chart-line"></i> Chart</button>
+                </div>
+            </div>
+            <div class="history-timeline">
+                <div id="timeline-container">
+                    <!-- Timeline entries will be inserted here dynamically -->
+                    <div class="empty-timeline-message">No historical data available yet</div>
+                </div>
+            </div>
+            <div id="history-table-view" class="history-data-view active">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Upload Date</th>
+                            <th>Total Orders</th>
+                            <th>New Orders</th>
+                            <th>Removed Orders</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        <!-- History table rows will be inserted here dynamically -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="history-chart-view" class="history-data-view">
+                <div class="chart-container">
+                    <canvas id="history-chart"></canvas>
+                </div>
+                <div class="chart-controls">
+                    <div class="chart-metric-selector">
+                        <label for="history-metric">Metric:</label>
+                        <select id="history-metric">
+                            <option value="orders">Total Orders</option>
+                            <option value="locations">Location Count</option>
+                            <option value="changes">Changes Over Time</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <div id="advanced-filters-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Advanced Filters</h2>
+                <button id="close-filters-modal" class="btn icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="filter-groups">
+                    <div class="filter-group">
+                        <h3>Location Code</h3>
+                        <div id="location-filters" class="filter-options">
+                            <!-- Location filter options will be inserted here dynamically -->
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <h3>Fabric Type</h3>
+                        <div id="fabric-filters" class="filter-options">
+                            <!-- Fabric filter options will be inserted here dynamically -->
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <h3>GPU Model</h3>
+                        <div id="gpu-filters" class="filter-options">
+                            <!-- GPU filter options will be inserted here dynamically -->
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <h3>Customer</h3>
+                        <div id="customer-filters" class="filter-options">
+                            <!-- Customer filter options will be inserted here dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="clear-filters" class="btn secondary">Clear All</button>
+                <button id="apply-filters" class="btn primary">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="order-detail-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Order Details</h2>
+                <button id="close-order-modal" class="btn icon-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <table id="order-details-table">
+                    <tbody id="order-details-tbody">
+                        <!-- Order detail rows will be inserted here dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div id="toast-container"></div>
+    
+    <footer>
+        <div class="footer-content">
+            <button id="view-history-btn" class="btn secondary"><i class="fas fa-history"></i> View History</button>
+            <p class="version">Task Tracker v1.0</p>
+        </div>
+    </footer>
+    
+    <script src="scripts/store.js"></script>
+    <script src="scripts/csv.js"></script>
+    <script src="scripts/dashboard.js"></script>
+    <script src="scripts/detail.js"></script>
+    <script src="scripts/history.js"></script>
+    <script src="scripts/search.js"></script>
+    <script src="scripts/visualizations.js"></script>
+    <script src="scripts/app.js"></script>
+</body>
+</html>
