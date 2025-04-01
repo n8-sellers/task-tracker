@@ -86,7 +86,7 @@ const App = (function() {
      */
     async function loadSampleExcelData() {
         try {
-            // Generate sample Excel blob
+            // Generate sample Excel blob with headers in the third row
             const excelBlob = FileHandler.generateSampleExcel();
             
             // Convert to File object
@@ -94,10 +94,12 @@ const App = (function() {
                 type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
             });
             
+            showToast('info', 'Parsing Excel file with headers in row 3...');
+            
             // Parse the Excel file
             const parsedData = await FileHandler.parseExcelFile(file);
             
-            // Normalize data
+            // Normalize data 
             const normalizedData = parsedData.data.map(row => {
                 // Create a normalized row object
                 const normalizedRow = {};
@@ -128,6 +130,10 @@ const App = (function() {
                 data: normalizedData
             };
             
+            // Add info about header detection
+            const headerRowIndex = parsedData.meta.headerRowIndex || 0;
+            const headerInfo = `Found headers in row ${headerRowIndex + 1}`;
+            
             // Save to data store
             await DataStore.saveUpload(uploadData);
             
@@ -140,7 +146,7 @@ const App = (function() {
                 await HistoryView.loadUploads();
             }
             
-            showToast('success', 'Sample Excel data loaded successfully!');
+            showToast('success', `Sample Excel data loaded successfully! ${headerInfo}`);
         } catch (error) {
             console.error('Error loading sample Excel data:', error);
             showToast('error', `Error loading sample Excel data: ${error.message}`);

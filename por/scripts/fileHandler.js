@@ -283,14 +283,27 @@ const FileHandler = (function() {
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     
-                    // Convert to JSON (header: true makes it use the first row as header)
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+                    // Find the header row by scanning the first several rows
+                    const { headerRowIndex, columnMapping } = findHeaderRow(worksheet);
+                    
+                    if (headerRowIndex === -1) {
+                        reject(new Error("Could not find required columns in the Excel file. Please ensure your file contains the required columns."));
+                        return;
+                    }
+                    
+                    // Convert to JSON using the detected header row
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                        raw: false,
+                        range: headerRowIndex,   // Start from the detected header row
+                        header: columnMapping  // Use the mapped column names
+                    });
                     
                     // Create a PapaParse-like result object
                     const result = {
                         data: jsonData,
                         meta: {
-                            fields: Object.keys(jsonData[0] || {})
+                            fields: EXPECTED_COLUMNS,
+                            headerRowIndex: headerRowIndex
                         },
                         errors: []
                     };
@@ -311,6 +324,101 @@ const FileHandler = (function() {
     }
     
     /**
+     * Find the header row in an Excel worksheet by scanning for expected columns
+     * @param {Object} worksheet - XLSX worksheet object
+     * @param {number} maxRowsToScan - Maximum number of rows to scan for headers (default: 10)
+     * @returns {Object} - Header row index and column mapping
+     */
+    function findHeaderRow(worksheet, maxRowsToScan = 10) {
+        // Get the range of data in the worksheet
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        
+        // Limit the number of rows to scan
+        const rowsToScan = Math.min(range.e.r + 1, maxRowsToScan);
+        
+        // For each row, check if it contains our expected columns
+        for (let rowIndex = 0; rowIndex < rowsToScan; rowIndex++) {
+            // Extract the row values
+            const rowCells = [];
+            for (let colIndex = range.s.c; colIndex <= range.e.c; colIndex++) {
+                const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex });
+                const cell = worksheet[cellAddress];
+                if (cell && cell.t) {
+                    rowCells.push({
+                        value: cell.v,
+                        colIndex: colIndex
+                    });
+                }
+            }
+            
+            // Skip empty rows
+            if (rowCells.length === 0) continue;
+            
+            // Check if this row contains our expected columns
+            const columnMapping = findColumnMapping(rowCells);
+            
+            // If we found a match, return the row index
+            if (Object.keys(columnMapping).length === EXPECTED_COLUMNS.length) {
+                return { 
+                    headerRowIndex: rowIndex,
+                    columnMapping: columnMapping
+                };
+            }
+        }
+        
+        // If we didn't find a header row, return -1
+        return { headerRowIndex: -1, columnMapping: {} };
+    }
+    
+    /**
+     * Find mapping between actual column names and expected column names
+     * @param {Array} rowCells - Array of cell objects from a potential header row
+     * @returns {Object} - Mapping of expected column names to actual column names
+     */
+    function findColumnMapping(rowCells) {
+        const columnMapping = {};
+        const exactMatchColumns = new Set();
+        
+        // First try exact matches
+        for (const cell of rowCells) {
+            const cellValue = String(cell.value).trim();
+            
+            if (EXPECTED_COLUMNS.includes(cellValue)) {
+                columnMapping[cellValue] = cellValue;
+                exactMatchColumns.add(cellValue);
+            }
+        }
+        
+        // If we didn't find all columns with exact match, try fuzzy match for remaining
+        if (exactMatchColumns.size < EXPECTED_COLUMNS.length) {
+            // Map remaining expected columns using case-insensitive and partial matching
+            for (const expectedCol of EXPECTED_COLUMNS) {
+                if (exactMatchColumns.has(expectedCol)) continue;
+                
+                // Try case-insensitive match
+                for (const cell of rowCells) {
+                    const cellValue = String(cell.value).trim();
+                    
+                    // Check for case-insensitive match
+                    if (cellValue.toLowerCase() === expectedCol.toLowerCase()) {
+                        columnMapping[expectedCol] = cellValue;
+                        break;
+                    }
+                    
+                    // Check if the cell contains the expected column (partial match)
+                    if (cellValue.toLowerCase().includes(expectedCol.toLowerCase()) ||
+                        expectedCol.toLowerCase().includes(cellValue.toLowerCase())) {
+                        columnMapping[expectedCol] = cellValue;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return columnMapping;
+    }
+    
+    /**
      * Generate a sample Excel file (XLSX) for testing
      * @returns {Blob} - Excel file as Blob
      */
@@ -318,7 +426,7 @@ const FileHandler = (function() {
         // Create a new workbook
         const workbook = XLSX.utils.book_new();
         
-        // Sample data (same as CSV)
+        // Sample data with headers in third row to test dynamic header detection
         const headers = ['UniqueID', 'Location Code', 'Customer', 'Fabric Type', 'GPU Model', 'Quantity', 'Order Date'];
         const sampleData = [
             [1001, 'LOC001', 'Acme Corp', 'Cotton', 'RTX 3080', 5, '2025-01-15'],
@@ -330,11 +438,21 @@ const FileHandler = (function() {
             [1007, 'LOC003', 'DataSystems', 'Polyester', 'RTX 4070', 6, '2025-01-30']
         ];
         
-        // Add headers to the data
-        const sheetData = [headers, ...sampleData];
+        // Create sample Excel with metadata and headers in third row
+        const sheetData = [
+            ['Sales Order Report', '', '', '', '', '', ''],
+            ['Generated on: April 1, 2025', '', '', '', '', '', ''],
+            headers, // Headers in third row (index 2)
+            ...sampleData
+        ];
         
         // Create worksheet and add to workbook
         const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+        
+        // Add some styling to make it more realistic
+        worksheet['!merges'] = [
+            { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } } // Merge cells for title
+        ];
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Orders');
         
         // Generate Excel file as array buffer
