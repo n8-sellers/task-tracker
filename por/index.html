@@ -15,14 +15,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <!-- Day.js for date handling -->
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/dayjs.min.js"></script>
+    <!-- SheetJS for Excel file parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <header>
         <div class="header-content">
             <h1>Task Tracker</h1>
             <div class="upload-container">
-                <button id="upload-btn" class="btn primary"><i class="fas fa-upload"></i> Upload CSV</button>
-                <input type="file" id="csv-upload" accept=".csv" hidden>
+                <button id="upload-btn" class="btn primary"><i class="fas fa-upload"></i> Upload Data</button>
+                <input type="file" id="csv-upload" accept=".csv,.xlsx,.xls" hidden>
             </div>
         </div>
         <div class="search-container">
@@ -79,8 +81,11 @@
                         <tr class="empty-state">
                             <td colspan="5">
                                 <div class="empty-state-message">
-                                    <i class="fas fa-file-csv fa-3x"></i>
-                                    <p>Upload a CSV file to get started</p>
+                                    <div class="empty-icons">
+                                        <i class="fas fa-file-csv fa-2x"></i>
+                                        <i class="fas fa-file-excel fa-2x"></i>
+                                    </div>
+                                    <p>Upload a CSV or Excel file to get started</p>
                                 </div>
                             </td>
                         </tr>
@@ -271,7 +276,7 @@
     </footer>
     
     <script src="scripts/store.js"></script>
-    <script src="scripts/csv.js"></script>
+    <script src="scripts/fileHandler.js"></script>
     <script src="scripts/dashboard.js"></script>
     <script src="scripts/detail.js"></script>
     <script src="scripts/history.js"></script>

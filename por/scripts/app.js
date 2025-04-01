@@ -16,9 +16,9 @@ const App = (function() {
             console.log('Initializing data storage...');
             // DataStore is automatically initialized
             
-            // Initialize CSV handler
-            console.log('Initializing CSV handler...');
-            CSVHandler.init();
+            // Initialize file handler
+            console.log('Initializing file handler...');
+            FileHandler.init();
             
             // Initialize dashboard
             console.log('Initializing dashboard...');
@@ -53,20 +53,98 @@ const App = (function() {
      * Add a sample data button for testing
      */
     function addSampleDataButton() {
-        // Create button
-        const sampleButton = document.createElement('button');
-        sampleButton.className = 'btn secondary';
-        sampleButton.innerHTML = '<i class="fas fa-vial"></i> Load Sample Data';
-        sampleButton.style.marginRight = '10px';
+        // Create CSV sample button
+        const sampleCsvButton = document.createElement('button');
+        sampleCsvButton.className = 'btn secondary';
+        sampleCsvButton.innerHTML = '<i class="fas fa-vial"></i> Load CSV Sample';
+        sampleCsvButton.style.marginRight = '10px';
         
-        // Add click handler
-        sampleButton.addEventListener('click', () => {
-            CSVHandler.loadSampleData();
+        // Add click handler for CSV
+        sampleCsvButton.addEventListener('click', () => {
+            FileHandler.loadSampleData();
+        });
+        
+        // Create Excel sample button
+        const sampleExcelButton = document.createElement('button');
+        sampleExcelButton.className = 'btn secondary';
+        sampleExcelButton.innerHTML = '<i class="fas fa-file-excel"></i> Load Excel Sample';
+        sampleExcelButton.style.marginRight = '10px';
+        
+        // Add click handler for Excel
+        sampleExcelButton.addEventListener('click', () => {
+            loadSampleExcelData();
         });
         
         // Add to the upload container
         const uploadContainer = document.querySelector('.upload-container');
-        uploadContainer.insertBefore(sampleButton, uploadContainer.firstChild);
+        uploadContainer.insertBefore(sampleExcelButton, uploadContainer.firstChild);
+        uploadContainer.insertBefore(sampleCsvButton, uploadContainer.firstChild);
+    }
+    
+    /**
+     * Load sample Excel data for testing
+     */
+    async function loadSampleExcelData() {
+        try {
+            // Generate sample Excel blob
+            const excelBlob = FileHandler.generateSampleExcel();
+            
+            // Convert to File object
+            const file = new File([excelBlob], 'sample_data.xlsx', { 
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            });
+            
+            // Parse the Excel file
+            const parsedData = await FileHandler.parseExcelFile(file);
+            
+            // Normalize data
+            const normalizedData = parsedData.data.map(row => {
+                // Create a normalized row object
+                const normalizedRow = {};
+                
+                // Process each field in the row
+                Object.entries(row).forEach(([key, value]) => {
+                    // Skip empty or null values
+                    if (value === null || value === undefined || value === '') {
+                        normalizedRow[key] = null;
+                        return;
+                    }
+                    
+                    // For string values, trim whitespace
+                    if (typeof value === 'string') {
+                        normalizedRow[key] = value.trim();
+                    } else {
+                        normalizedRow[key] = value;
+                    }
+                });
+                
+                return normalizedRow;
+            });
+            
+            // Build upload data object
+            const uploadData = {
+                filename: 'sample_data.xlsx',
+                columns: parsedData.meta.fields,
+                data: normalizedData
+            };
+            
+            // Save to data store
+            await DataStore.saveUpload(uploadData);
+            
+            // Update UI
+            if (typeof Dashboard !== 'undefined' && Dashboard.loadData) {
+                await Dashboard.loadData();
+            }
+            
+            if (typeof HistoryView !== 'undefined' && HistoryView.loadUploads) {
+                await HistoryView.loadUploads();
+            }
+            
+            showToast('success', 'Sample Excel data loaded successfully!');
+        } catch (error) {
+            console.error('Error loading sample Excel data:', error);
+            showToast('error', `Error loading sample Excel data: ${error.message}`);
+        }
     }
     
     /**

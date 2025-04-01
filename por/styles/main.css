@@ -499,6 +499,19 @@ tbody tr:hover {
     color: var(--text-muted);
 }
 
+.empty-icons {
+    display: flex;
+    gap: 1rem;
+}
+
+.empty-icons i.fa-file-csv {
+    color: var(--primary-color);
+}
+
+.empty-icons i.fa-file-excel {
+    color: var(--success-color);
+}
+
 .empty-timeline-message {
     text-align: center;
     padding: 2rem;

@@ -21,7 +21,7 @@ flowchart TD
 
 ### 1. Module Pattern
 Each functional area is encapsulated in its own module with clear responsibilities:
-- **CSV Module**: Handles file uploads and parsing
+- **FileHandler Module**: Handles file uploads and parsing (CSV & Excel)
 - **Data Store Module**: Manages data persistence and retrieval
 - **Dashboard Module**: Controls main view and summary displays
 - **Detail Module**: Manages expanded views for specific items
@@ -47,8 +47,8 @@ Each functional area is encapsulated in its own module with clear responsibiliti
 ## Component Relationships
 
 ### Data Flow
-1. User uploads CSV file
-2. Parser processes and normalizes data
+1. User uploads CSV or Excel file
+2. FileHandler detects file type and uses appropriate parser (PapaParse for CSV, SheetJS for Excel)
 3. Data Store saves data with timestamp
 4. Dashboard queries Data Store for summaries
 5. Detail View queries for specific item details

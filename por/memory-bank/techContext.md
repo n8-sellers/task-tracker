@@ -10,6 +10,7 @@
 
 ### Libraries & Dependencies
 - **PapaParse**: CSV parsing and handling (https://www.papaparse.com/)
+- **SheetJS/xlsx**: Excel file parsing and handling (https://sheetjs.com/)
 - **Chart.js**: Versatile charting library (https://www.chartjs.org/)
 - **localForage**: IndexedDB wrapper for easier storage handling (https://localforage.github.io/localForage/)
 - **Day.js**: Lightweight date manipulation (https://day.js.org/)
@@ -65,10 +66,11 @@
 - Browser storage limits (typically ~50MB for IndexedDB)
 - Performance considerations for large datasets
 
-### CSV Format Expectations
+### File Format Expectations
 - Consistent column structure between uploads
 - UniqueID column for tracking individual records
-- Standard CSV formatting (comma-separated, quoted as needed)
+- Support for CSV format (comma-separated, quoted as needed)
+- Support for Excel formats (.xlsx, .xls)
 
 ### Performance Considerations
 - Efficient data structure for quick filtering and searching
